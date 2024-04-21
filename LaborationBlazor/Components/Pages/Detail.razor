@@ -1,0 +1,118 @@
+﻿@page "/detail/{Id:int?}"
+@inject ProductService productService
+@inject ShoppingCartService shoppingCartService
+@inject ExchangeRateService exchangeRateService 
+@inject NavigationManager navigationManager
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@rendermode InteractiveServer
+
+@if (Product is null) 
+{
+    <h3>Sorry, the Product that you are looking for doesn't exist..</h3>
+    <a href="/">Home</a>
+}
+else
+{
+    <div class="body mb-3">
+        <div class="content-center">
+            <h1 class="align-self-center">@Product.Name</h1>
+            <img src="@Product.ImgUrl" alt="Product Image" class="img-fluid img-border" />
+        
+        <p class="text-center"><em>@Product.Description</em></p>
+        </div>
+        
+        @if (Product.Quantity > 0)
+        {
+            @if (Product.IsOnSale)
+            {
+                <p><strong>Former price</strong>: <del>@(Math.Ceiling(Product.Price * 2M).ToString("C"))</del></p>
+                <p><span class="fw-bolder ml-2">Now:</span> @Product.Price.ToString("C")</p>
+                
+            }
+            else
+            {
+                <p><strong>Price</strong>: @Product.Price.ToString("C")</p>
+            }
+                @if (!isLoading && !isFetched)
+                {
+                    <button class="btn-sm btn-secondary mb-3"  @onclick="GetOtherCurrencies">See more currencies</button>
+                }
+                @if (isLoading)
+                {
+                    <p><em>Loading currencies...</em></p>
+                }
+            @if (isFetched)
+            {
+                <p class="mx-2 "><span class="text-decoration-underline fst-italic">EUR</span>: €@((exchangeToEUR * Product.Price).ToString("F2"))</p>
+                <p class="mx-2"><span class="text-decoration-underline fst-italic">USD</span>: $@((exchangeToUSD * Product.Price).ToString("F2"))</p>
+            }
+            <p><strong>Quantity</strong>: @Product.Quantity</p>
+            <div class="d-flex align-items-center gap-2">
+                <span class="btn btn-success" @onclick="AddToCart">Add to cart</span>
+                @if (productAdded)
+                {
+                    <span><em>Product added to cart!</em></span>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="text-decoration-line-through">@Product.Price.ToString("C")</p>
+            <p class="fw-bolder">This product is unfortunately out of stock!</p>
+        }
+        <br>
+        <div class="d-flex gap-1">
+        <a class="btn btn-outline-dark" href="/cart">Go to Cart</a>
+        <a class="btn btn-outline-dark" href="/">Home</a> 
+        
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Product Product { get; set; }
+
+    private decimal exchangeToEUR;
+    private decimal exchangeToUSD;
+    private bool isLoading = false;
+    private bool isFetched = false;
+    private bool productAdded = false;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await productService.GetProductById(Id);
+        Product = result;
+    }
+
+    private async Task GetOtherCurrencies()
+    {
+        isLoading = true;
+        exchangeToEUR = await exchangeRateService.GetExchangeRateAsync("DKK", "EUR");
+        exchangeToUSD = await exchangeRateService.GetExchangeRateAsync("DKK", "USD");
+        isLoading = false;
+        isFetched = true;
+    }
+
+    private async Task AddToCart() 
+    {
+        var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if(user.Identity.IsAuthenticated)
+        {
+            await shoppingCartService.AddToCart(Product);
+            productAdded = true;
+        }
+        else
+        {
+            navigationManager.NavigateTo("/Account/Login");
+        }
+    }
+
+}
+

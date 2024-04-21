@@ -1,0 +1,40 @@
+﻿.container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid white;
+    border-radius: 1%;
+    transition: border 0.3s ease;
+    padding-top: 1em;
+}
+
+    .container:hover {
+        cursor: pointer;
+        border: gray solid 2px;
+        background-color:whitesmoke;
+    }
+
+.sale {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-family: cursive,'Arial Rounded MT','Agency FB';
+    background-color: rgb(200, 5, 5);
+    color: rgb(255, 255, 255);
+    border: solid 2px rgb(142, 1, 1);
+    padding: 0.8em;
+    border-radius: 5%;
+    font-weight: 500;
+}
+
+.img-container {
+    position: relative;
+    display: inline-block;
+}
+
+.img 
+{
+    height: 250px;
+    width: auto;
+}

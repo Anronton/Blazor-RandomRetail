@@ -1,0 +1,43 @@
+﻿@page "/"
+@using LaborationBlazor.Components.ComponentCard
+@inject ProductService productService
+@inject NavigationManager navigationManager
+ 
+
+@rendermode InteractiveServer
+@attribute [StreamRendering] 
+
+
+<PageTitle>Home</PageTitle>
+<header>
+    <h1>Welcome to our webshop!</h1>
+</header>
+@if(products is null)
+{
+    <h3>Loading..</h3>
+}
+else
+{
+    <div class="Cards">
+        @foreach(var product in products)
+        {
+            <ProductCard Product="product" OnProductClicked="NavigateToProduct"></ProductCard>
+        }
+    </div>
+}
+
+
+@code {
+    private List<Product>? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await productService.GetAllProducts();
+        products = result;
+    }
+
+    private void NavigateToProduct(int productId)
+    {
+        navigationManager.NavigateTo($"/detail/{productId}");
+    }
+}

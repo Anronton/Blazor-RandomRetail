@@ -1,0 +1,19 @@
+﻿.body {
+    display:flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items:flex-start;
+}
+
+.content-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.img-border {
+    border: 10px solid white;
+}
+
+

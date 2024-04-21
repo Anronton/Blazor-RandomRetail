@@ -1,0 +1,39 @@
+﻿<div class="container" @onclick="HandleClick">
+    <h3>@Product.Name</h3>
+    <div class="position-relative img-container">
+        <img src="@Product.ImgUrl" class="img" />
+        @if (Product.IsOnSale && Product.Quantity > 0)
+        {
+            <span class="sale">-50%</span>
+        }
+    </div>
+    
+    <p class="text-truncate" style="max-width: 15em;">@Product.Description</p>
+    @if (Product.Quantity > 0 && Product.IsOnSale is true)
+    {
+        <p>@Product.Price.ToString("C")<span class="fw-bolder mx-2">On Sale!</span></p> 
+    }
+    else if (Product.Quantity > 0)
+    {
+        <p>@Product.Price.ToString("C")</p>
+    }
+    else
+    {
+        @* <p class="text-decoration-line-through">@Product.Price.ToString("C")</p> *@
+        <p><span class="text-decoration-line-through">@Product.Price.ToString("C")</span><span class="fw-bolder mx-2">Out of stock!</span></p>
+    }
+</div>
+
+
+@code {
+    [Parameter]
+    public Product Product { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnProductClicked { get; set; }
+
+    private async Task HandleClick()
+    {
+        await OnProductClicked.InvokeAsync(Product.Id);
+    }
+}

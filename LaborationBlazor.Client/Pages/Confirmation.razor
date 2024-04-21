@@ -1,0 +1,67 @@
+﻿@page "/confirmation/{OrderId}"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject HttpClient http
+@inject NavigationManager navigationManager
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@if (order == null)
+{
+    <p>Loading order details...</p>
+}
+else if (!isAuthorized)
+{
+    <p>This order does not belong to you...</p>
+}
+else
+{
+    <h2>Thank you @order.CustomerFirstName @* @order.CustomerLastName *@ for your purchase!</h2>
+    <img src="https://media.tenor.com/lP6LNFEKkQ4AAAAM/dj-khaled-dancing.gif" alt="Dancing khaled" class="img" />
+
+    <p>The full receipt has been sent to your email: <span class="fw-bolder"> @order.CustomerEmail</span></p>
+    <span>Here's a short preview</span>
+    <ul>
+        @foreach (var item in order.OrderItems)
+        {
+            <li><span class="fw-bolder">@($"{item.Quantity}x") @item.ProductName</span> - cost per unit: <em>@item.PricePerUnit.ToString("C")</em></li>
+        }
+    </ul>
+    <p><span class="text-decoration-underline">Your order's total cost was</span>: <span class="fw-bolder">@order.TotalPrice.ToString("C")</span> </p>
+
+    <p>We will send a message to phone number: <span class="fw-bolder">@order.CustomerPhone</span> <br> when the package has arrived at: <span class="fw-bolder">@order.CustomerAddress @order.CustomerCity</span></p>
+    <h5>Thank you for your order, please leave us a review!</h5>
+}
+<a class="btn btn-outline-dark my-1" href="/">Home</a>
+
+@code {
+    [Parameter] public string OrderId { get; set; }
+    private OrderDTO? order;
+    private bool isAuthorized = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (int.TryParse(OrderId, out int orderIdParsed))
+        {
+            try
+            {
+                order = await http.GetFromJsonAsync<OrderDTO>($"https://localhost:7238/api/orders/{orderIdParsed}");
+                if (order is not null && order.UserName.Equals(user.Identity?.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    isAuthorized = true;
+                }
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                navigationManager.NavigateTo("/");
+            }
+        }
+        else
+        {
+            navigationManager.NavigateTo("/");
+        }
+    }
+}
+

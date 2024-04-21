@@ -1,0 +1,176 @@
+﻿@page "/cart"
+@inject ShoppingCartService shoppingCartService
+@inject ProductService productService
+@inject OrderService orderService
+@inject NavigationManager navigationManager
+@inject AuthenticationStateProvider authenticationStateProvider
+@inject UserManager<ApplicationUser> userManager 
+
+
+@rendermode InteractiveServer
+
+<h1>Shopping Cart</h1>
+
+@if (cartProducts is null || !cartProducts.Any())
+{
+    <p>Your shopping cart is currently empty...</p>
+    <a class="btn btn-outline-dark" href="/">Home</a>
+}
+else
+{
+    <div>
+        @foreach (var cartProduct in cartProducts)
+        {
+            <div class="mt-2 d-flex justify-content-start align-items-center">
+                <div class="name-stock d-flex justify-content-between">
+                    <span class="fw-bolder">@cartProduct.Product.Name </span> <span>Available: <strong>@cartProduct.Product.Quantity</strong></span>
+                </div>
+                <div class="d-flex align-items-center gap-2 mx-2">
+                    <InputNumber style="width:4em;" min="1" max="@cartProduct.Product.Quantity" @bind-Value="@cartProduct.Quantity" class="form-control-sm" />
+                    <button class="btn-sm btn-danger" @onclick="() => RemoveFromCart(cartProduct.ProductId)">Remove</button>
+                </div>
+            </div>
+        }  
+
+        <p class="mt-3"> <span class="fw-bold text-decoration-underline">Estimated total cost</span>: @TotalCost.ToString("C") </p>
+
+        <EditForm Model="@customerInfo" OnValidSubmit="BuyProducts">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-group my-1">
+                <label for="firstName">First Name </label> <br>
+                <InputText id="firstName" class="form-control-sm" @bind-Value="customerInfo.FirstName" />
+            </div>
+
+            <div class="form-group my-1">
+                <label for="lastName">Last Name </label> <br>
+                <InputText id="lastName" class="form-control-sm" @bind-Value="customerInfo.LastName" />
+            </div>
+
+            <div class="form-group my-1">
+                <label for="city">City </label> <br>
+                <InputText id="city" class="form-control-sm" @bind-Value="customerInfo.City" />
+            </div>
+
+            <div class="form-group my-1">
+                <label for="address">Address </label> <br>
+                <InputText id="address" class="form-control-sm" @bind-Value="customerInfo.Address" />
+            </div>
+
+            <div class="form-group my-1">
+                <label for="phonenumber">Phone </label> <br>
+                <InputText id="phonenumber" class="form-control-sm" @bind-Value="customerInfo.PhoneNumber" />
+            </div>
+
+            <div class="form-group my-1">
+                <label for="email">Email address</label> <br>
+                <InputText id="email" class="form-control-sm" @bind-Value="customerInfo.Email" />
+            </div>
+
+            <button type="submit" class="btn btn-success mt-3">Buy products</button>
+        </EditForm>
+    </div>
+    <br><br>
+    <a class="btn btn-outline-dark" href="/">Home</a>
+}
+
+@code {
+
+    private List<CartProduct>? cartProducts;
+    private decimal TotalCost => cartProducts?.Sum(cp => cp.Product.Price * cp.Quantity) ?? 0;
+    private CustomerInfo customerInfo = new CustomerInfo();
+
+    private Order? order;
+    private List<OrderItem>? orderItems;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (!user.Identity.IsAuthenticated)
+        {
+            navigationManager.NavigateTo("/Account/Login");
+            return;
+        }
+
+        var userEmail = user.Identity.Name;
+        var appUser = await userManager.FindByEmailAsync(userEmail);
+
+        if(appUser is not null)
+        {
+            await shoppingCartService.RemoveSoldOutProducts();
+            cartProducts = await shoppingCartService.GetCartItems();
+        }
+    }
+
+
+
+    private async Task BuyProducts()
+    {
+        var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            navigationManager.NavigateTo("/Account/Login");
+            return;
+        }
+
+        order = new Order
+            {
+                UserId = userId,
+                OrderDate = DateTime.Now,
+                TotalPrice = TotalCost,
+                CustomerFirstName = customerInfo.FirstName,
+                CustomerLastName = customerInfo.LastName,
+                CustomerCity = customerInfo.City,
+                CustomerAddress = customerInfo.Address,
+                CustomerPhone = customerInfo.PhoneNumber,
+                CustomerEmail = customerInfo.Email
+            };
+
+        orderItems = new List<OrderItem>();
+
+        foreach (var cartProduct in cartProducts)
+        {
+            var orderItem = new OrderItem
+                {
+                    ProductId = cartProduct.ProductId,
+                    Quantity = cartProduct.Quantity,
+                    PricePerUnit = cartProduct.Product.Price
+                };
+            orderItems.Add(orderItem);
+
+            var productToUpdate = await productService.GetProductById(cartProduct.ProductId);
+            if (productToUpdate is not null)
+            {
+                productToUpdate.Quantity -= cartProduct.Quantity;
+                await productService.UpdateProductQuantity(productToUpdate);
+            }
+
+        }
+        int orderId = await orderService.CreateOrder(order, orderItems);
+
+        await shoppingCartService.RemoveAllFromCart();
+
+        navigationManager.NavigateTo($"/confirmation/{orderId}");
+    }
+
+
+    private async Task RemoveFromCart(int productId)
+    {
+        await shoppingCartService.RemoveFromCart(productId);
+        cartProducts = await shoppingCartService.GetCartItems();
+    }
+
+
+    private async Task UpdateQuantity(int productId, int newQuantity)
+    {
+        await shoppingCartService.UpdateCartProductQuantity(productId, newQuantity);
+        cartProducts = await shoppingCartService.GetCartItems();
+    }
+}
